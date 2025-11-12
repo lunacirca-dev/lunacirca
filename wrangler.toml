@@ -1,5 +1,5 @@
-name = "rudl-dl-v2"
-compatibility_date = "2025-10-03"
+name = "lunacirca-web"
+compatibility_date = "2025-11-13"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
@@ -8,13 +8,13 @@ pages_build_output_dir = ".vercel/output/static"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "rudl_app"
-database_id = "6971cadc-b4f7-4642-bc78-f1e5e1bee999"
+database_name = "lunacirca-data"
+database_id = "c686b317-488f-41f3-bf75-a1510d5bc7a5"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "R2_BUCKET"
-bucket_name = "dataruapp-files"
+bucket_name = "lunacirca-files"
 
 # Email sending now handled via MailChannels HTTP API (see README / env vars)
 # Configure an Email (send) binding to enable verification emails
