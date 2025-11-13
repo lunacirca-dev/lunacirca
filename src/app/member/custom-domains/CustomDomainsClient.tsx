@@ -212,7 +212,7 @@ export default function CustomDomainsClient({
                   <div>
                     <p className="text-base font-semibold text-gray-900">{domain.hostname}</p>
                     <p className="text-sm text-gray-500">
-                      {t('member.customDomains.linkedDistribution', { code: label })}
+                      {t('member.customDomains.linkedDistribution').replace('{code}', label)}
                     </p>
                   </div>
                   <span
