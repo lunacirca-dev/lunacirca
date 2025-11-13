@@ -17,6 +17,7 @@ export default function MemberNav() {
   const localePrefix = localeSegment ? `/${localeSegment}` : '';
   const memberHome = `${localePrefix}/member`;
   const historyPath = `${memberHome}/orders/history`;
+  const customDomainsPath = `${memberHome}/custom-domains`;
 
   const [ordersOpen, setOrdersOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -91,7 +92,9 @@ export default function MemberNav() {
           </div>
         ) : null}
       </div>
+      <Link className={linkClass(customDomainsPath)} href={customDomainsPath}>
+        {t('member.nav.customDomains')}
+      </Link>
     </nav>
   );
 }
-

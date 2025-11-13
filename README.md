@@ -46,7 +46,7 @@ This path is useful when testing before pushing to Git or when you need an immed
 ## Troubleshooting
 - Missing D1 binding: API routes and server components return HTTP 500 with "D1 binding DB is missing". Ensure the Pages project exposes the binding as `DB` (or temporarily keep `rudl-app` while migrating).
 - CDN assets: downloads redirect to `https://cdn.dataruapp.com/<key>`. Confirm that key exists in R2 and the CDN exposes it publicly.
-- Locales: middleware redirects to `/en` or `/zh-TW`. Add languages under `src/i18n/messages` and update `src/i18n/locales.ts` for extra locales.
+- Locales: middleware redirects to `/en` or `/zh-TW`. Add languages inside `src/i18n/dictionary.ts` (and register them in `src/i18n/locales.ts`) for extra locales.
 
 ## Useful scripts
 - `npm run dev` - local Next.js dev server.
