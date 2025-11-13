@@ -1,4 +1,4 @@
-name = "rudlmonitor"
+name = "lunacircamonitor"
 main = "src/index.ts"
 compatibility_date = "2024-11-10"
 
@@ -7,5 +7,5 @@ crons = ["*/10 * * * *"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "rudl-app"
-database_id = "6971cadc-b4f7-4642-bc78-f1e5e1bee999"
+database_name = "lunacirca-data"
+database_id = "c686b317-488f-41f3-bf75-a1510d5bc7a5"
