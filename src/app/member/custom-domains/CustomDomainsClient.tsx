@@ -88,7 +88,7 @@ export default function CustomDomainsClient({
       });
       const data = (await res.json()) as ApiResponse;
       if (!res.ok || !data.ok) {
-        const key = !res.ok ? (data as { error?: string }).error : data.error;
+        const key = 'error' in data ? data.error : undefined;
         setError(errorMessages[key ?? ''] ?? t('member.customDomains.error.generic'));
         setSubmitting(false);
         return;
