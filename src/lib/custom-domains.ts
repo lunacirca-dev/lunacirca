@@ -30,6 +30,54 @@ export const TXT_RECORD_PREFIX = '_cf-custom-hostname';
 
 type DomainRow = Record<string, unknown>;
 
+let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
+
+async function ensureSchema(DB: D1Database) {
+  if (schemaReady) return;
+  if (schemaPromise) {
+    await schemaPromise;
+    return;
+  }
+  schemaPromise = (async () => {
+    await DB.prepare(`
+      CREATE TABLE IF NOT EXISTS custom_domains (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        distribution_id TEXT NOT NULL,
+        hostname TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending_dns',
+        verification_method TEXT NOT NULL DEFAULT 'txt',
+        verification_token TEXT NOT NULL,
+        cf_hostname_id TEXT,
+        dns_target TEXT NOT NULL DEFAULT 'edge.dataruapp.com',
+        txt_name TEXT,
+        txt_value TEXT,
+        last_error TEXT,
+        last_checked_at INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER)),
+        updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER))
+      )
+    `).run();
+    await DB.prepare(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_custom_domains_hostname ON custom_domains (hostname)
+    `).run();
+    await DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_custom_domains_owner ON custom_domains (owner_id)
+    `).run();
+    await DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_custom_domains_distribution ON custom_domains (distribution_id)
+    `).run();
+    schemaReady = true;
+  })();
+  try {
+    await schemaPromise;
+  } catch (error) {
+    schemaPromise = null;
+    throw error;
+  }
+}
+
 const toEpochSeconds = (value: unknown): number => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string') {
@@ -100,6 +148,7 @@ export function isApexHostname(hostname: string): boolean {
 
 export async function listCustomDomainsByOwner(DB: D1Database, ownerId: string) {
   if (!ownerId?.trim()) return [];
+  await ensureSchema(DB);
   const statement = `
     SELECT cd.*, l.code as link_code, l.title as link_title
     FROM custom_domains cd
@@ -115,6 +164,7 @@ export async function listCustomDomainsByOwner(DB: D1Database, ownerId: string) 
 export async function getCustomDomainByHostname(DB: D1Database, hostname: string) {
   if (!hostname?.trim()) return null;
   const normalized = hostname.trim().toLowerCase();
+  await ensureSchema(DB);
   const statement = `
     SELECT cd.*, l.code as link_code, l.title as link_title
     FROM custom_domains cd
@@ -128,6 +178,7 @@ export async function getCustomDomainByHostname(DB: D1Database, hostname: string
 
 export async function getCustomDomainById(DB: D1Database, id: string) {
   if (!id?.trim()) return null;
+  await ensureSchema(DB);
   const statement = `
     SELECT cd.*, l.code as link_code, l.title as link_title
     FROM custom_domains cd
@@ -158,6 +209,7 @@ type CreateCustomDomainInput = {
 };
 
 export async function createCustomDomain(DB: D1Database, input: CreateCustomDomainInput) {
+  await ensureSchema(DB);
   const id = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
   const statement = `
