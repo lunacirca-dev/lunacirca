@@ -61,7 +61,7 @@ export default function AppShell({
             <LangNav />
             <main>{children}</main>
             <footer className="mt-10 text-xs text-gray-500">
-              © {new Date().getFullYear()} DataruApp
+              © {new Date().getFullYear()} Lunacirca
             </footer>
           </div>
         )}

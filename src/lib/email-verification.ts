@@ -244,7 +244,7 @@ export async function sendVerificationEmail({
   to,
   verificationUrl,
   subject = 'Verify your email address',
-  appName = 'DataruApp',
+  appName = 'Lunacirca',
 }: VerificationEmailParams): Promise<void> {
   const resolvedEnv: Required<EmailEnv> = {
     MAILCHANNELS_API_KEY: env.MAILCHANNELS_API_KEY ?? process.env.MAILCHANNELS_API_KEY ?? '',

@@ -101,7 +101,7 @@ export default function LangNav() {
       <Link href={localePrefix || '/'} className="flex items-center gap-3 text-xl font-semibold text-gray-900">
         <Image
           src="/images/logo.png"
-          alt="DataruApp logo"
+          alt="Lunacirca logo"
           width={256}
           height={256}
           className="h-10 w-auto sm:h-12"

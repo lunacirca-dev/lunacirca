@@ -4,7 +4,7 @@ type Dict = Record<string, string>;
 // 0
 const en: Dict = {
   'action.download': 'Download',
-  'app.name': 'DataruApp',
+  'app.name': 'Lunacirca',
   'auth.email': 'Email',
   'auth.login.submit': 'Sign in',
   'auth.login.success': 'Login success',

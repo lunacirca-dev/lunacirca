@@ -109,8 +109,8 @@ export async function POST(req: Request) {
       env: bindings,
       to: normalizedEmail,
       verificationUrl,
-      subject: `${bindings.APP_NAME ?? 'DataruApp'} - Email verification`,
-      appName: bindings.APP_NAME ?? 'DataruApp',
+      subject: `${bindings.APP_NAME ?? 'Lunacirca'} - Email verification`,
+      appName: bindings.APP_NAME ?? 'Lunacirca',
     });
 
     await ensureUserBucketFolder(R2, id);

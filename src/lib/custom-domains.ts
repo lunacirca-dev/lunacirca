@@ -25,7 +25,7 @@ export type CustomDomainWithLink = CustomDomainRecord & {
   distributionTitle: string | null;
 };
 
-export const DEFAULT_DNS_TARGET = 'edge.dataruapp.com';
+export const DEFAULT_DNS_TARGET = 'edge.lunacirca.com';
 export const TXT_RECORD_PREFIX = '_cf-custom-hostname';
 
 type DomainRow = Record<string, unknown>;
@@ -50,7 +50,7 @@ async function ensureSchema(DB: D1Database) {
         verification_method TEXT NOT NULL DEFAULT 'txt',
         verification_token TEXT NOT NULL,
         cf_hostname_id TEXT,
-        dns_target TEXT NOT NULL DEFAULT 'edge.dataruapp.com',
+        dns_target TEXT NOT NULL DEFAULT 'edge.lunacirca.com',
         txt_name TEXT,
         txt_value TEXT,
         last_error TEXT,

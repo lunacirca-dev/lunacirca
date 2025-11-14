@@ -1,7 +1,7 @@
 {
   "zh-TW": {
     "action.download": "下載",
-    "app.name": "DataruApp",
+    "app.name": "Lunacirca",
     "bill.account": "帳戶 ID",
     "bill.link": "連結 ID",
     "bill.platform": "平台",
@@ -46,7 +46,7 @@
   },
   "zh-CN": {
     "action.download": "下载",
-    "app.name": "DataruApp",
+    "app.name": "Lunacirca",
     "bill.account": "账户 ID",
     "bill.link": "链接 ID",
     "bill.platform": "平台",
@@ -91,7 +91,7 @@
   },
   "en": {
     "action.download": "Download",
-    "app.name": "DataruApp",
+    "app.name": "Lunacirca",
     "bill.account": "Account ID",
     "bill.link": "Link ID",
     "bill.platform": "Platform",

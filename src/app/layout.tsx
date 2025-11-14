@@ -7,7 +7,7 @@ import { DEFAULT_LOCALE, dictionaries, type Locale } from '@/i18n/dictionary';
 export const runtime = 'edge';
 
 export const metadata: Metadata = {
-  title: 'DataruApp V2',
+  title: 'Lunacirca',
   description: 'Next + Cloudflare Pages',
   icons: {
     icon: [

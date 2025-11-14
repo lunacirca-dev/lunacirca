@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS custom_domains (
   verification_method TEXT NOT NULL DEFAULT 'txt',
   verification_token TEXT NOT NULL,
   cf_hostname_id TEXT,
-  dns_target TEXT NOT NULL DEFAULT 'edge.dataruapp.com',
+  dns_target TEXT NOT NULL DEFAULT 'edge.lunacirca.com',
   txt_name TEXT,
   txt_value TEXT,
   last_error TEXT,

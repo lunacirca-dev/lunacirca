@@ -94,8 +94,8 @@ export async function POST(req: Request) {
       env: bindings,
       to: email,
       verificationUrl,
-      subject: `${bindings.APP_NAME ?? 'DataruApp'} - Email verification`,
-      appName: bindings.APP_NAME ?? 'DataruApp',
+      subject: `${bindings.APP_NAME ?? 'Lunacirca'} - Email verification`,
+      appName: bindings.APP_NAME ?? 'Lunacirca',
     });
 
     return NextResponse.json({
