@@ -167,7 +167,7 @@ export default function CustomDomainsClient({
           {domains.map((domain) => {
             const label = domain.distributionTitle
               ? domain.distributionTitle + (domain.distributionCode ? ` (${domain.distributionCode})` : '')
-              : domain.distributionCode;
+              : domain.distributionCode ?? null;
             const linkText = label
               ? t('member.customDomains.linkedDistribution').replace('{code}', label)
               : t('member.customDomains.linkedDistributionPending');
@@ -180,9 +180,7 @@ export default function CustomDomainsClient({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-base font-semibold text-gray-900">{domain.hostname}</p>
-                    <p className="text-sm text-gray-500">
-                      {t('member.customDomains.linkedDistribution').replace('{code}', label)}
-                    </p>
+                    <p className="text-sm text-gray-500">{linkText}</p>
                   </div>
                   <span
                     className={`text-xs font-semibold uppercase tracking-wide ${statusColor[domain.status]}`}
