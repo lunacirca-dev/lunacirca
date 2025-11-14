@@ -11,7 +11,7 @@ type Env = {
   ['rudl-app']?: D1Database;
 };
 
-const CDN_BASE = 'https://cdn.dataruapp.com/';
+const CDN_BASE = 'https://cdn.lunacirca.com/';
 
 export async function GET(
   request: Request,

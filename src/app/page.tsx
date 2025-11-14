@@ -28,7 +28,7 @@ export default async function Page() {
           </li>
           <li>
             {t('env.r2Cdn')}
-            <code>https://cdn.dataruapp.com/</code>
+            <code>https://cdn.lunacirca.com/</code>
           </li>
           <li>
             {t('env.linksCount')}
