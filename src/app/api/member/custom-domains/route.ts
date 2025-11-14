@@ -67,7 +67,7 @@ export async function GET(req: Request) {
 
 type CreateDomainPayload = {
   hostname?: string;
-  distributionId?: string;
+  distributionId?: string | null;
 };
 
 export async function POST(req: Request) {
@@ -94,39 +94,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'APEX_NOT_ALLOWED' }, { status: 400 });
   }
 
-  const distributionId = (payload.distributionId ?? '').trim();
-  if (!distributionId) {
-    return NextResponse.json(
-      { ok: false, error: 'DISTRIBUTION_REQUIRED' },
-      { status: 400 }
-    );
-  }
-
   const { DB, dnsTarget } = getDb();
-
   const existing = await getCustomDomainByHostname(DB, normalizedHostname);
   if (existing) {
     return NextResponse.json({ ok: false, error: 'HOSTNAME_EXISTS' }, { status: 409 });
   }
 
-  const linkRow = await DB.prepare(
-    'SELECT id, owner_id, code, title FROM links WHERE id=? LIMIT 1'
-  )
-    .bind(distributionId)
-    .first<DistributionRow>();
+  const requestedDistributionId = (payload.distributionId ?? '').trim();
+  let distributionId: string | null = null;
+  if (requestedDistributionId) {
+    const linkRow = await DB.prepare(
+      'SELECT id, owner_id, code, title FROM links WHERE id=? LIMIT 1'
+    )
+      .bind(requestedDistributionId)
+      .first<DistributionRow>();
 
-  if (!linkRow) {
-    return NextResponse.json(
-      { ok: false, error: 'DISTRIBUTION_NOT_FOUND' },
-      { status: 404 }
-    );
-  }
+    if (!linkRow) {
+      return NextResponse.json(
+        { ok: false, error: 'DISTRIBUTION_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
 
-  if ((linkRow.owner_id ?? '').trim() !== uid) {
-    return NextResponse.json(
-      { ok: false, error: 'FORBIDDEN_DISTRIBUTION' },
-      { status: 403 }
-    );
+    if ((linkRow.owner_id ?? '').trim() !== uid) {
+      return NextResponse.json(
+        { ok: false, error: 'FORBIDDEN_DISTRIBUTION' },
+        { status: 403 }
+      );
+    }
+
+    distributionId = linkRow.id;
   }
 
   const verificationToken = crypto.randomUUID().replace(/-/g, '');
@@ -135,7 +132,7 @@ export async function POST(req: Request) {
 
   const created = await createCustomDomain(DB, {
     ownerId: uid,
-    distributionId,
+      distributionId,
     hostname: normalizedHostname,
     dnsTarget,
     verificationMethod: 'txt',

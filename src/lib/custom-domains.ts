@@ -5,7 +5,7 @@ export type CustomDomainStatus = 'pending_dns' | 'verifying' | 'active' | 'faile
 export type CustomDomainRecord = {
   id: string;
   ownerId: string;
-  distributionId: string;
+  distributionId: string | null;
   hostname: string;
   status: CustomDomainStatus;
   verificationMethod: string;
@@ -21,7 +21,7 @@ export type CustomDomainRecord = {
 };
 
 export type CustomDomainWithLink = CustomDomainRecord & {
-  distributionCode: string;
+  distributionCode: string | null;
   distributionTitle: string | null;
 };
 
@@ -96,7 +96,7 @@ const toStringOrNull = (value: unknown): string | null => {
 const mapRow = (row: DomainRow): CustomDomainRecord => ({
   id: toStringOrNull(row.id) ?? '',
   ownerId: toStringOrNull(row.owner_id) ?? '',
-  distributionId: toStringOrNull(row.distribution_id) ?? '',
+  distributionId: toStringOrNull(row.distribution_id),
   hostname: toStringOrNull(row.hostname) ?? '',
   status: (toStringOrNull(row.status) as CustomDomainStatus) ?? 'pending_dns',
   verificationMethod: toStringOrNull(row.verification_method) ?? 'txt',
@@ -113,7 +113,7 @@ const mapRow = (row: DomainRow): CustomDomainRecord => ({
 
 const mapRowWithLink = (row: DomainRow): CustomDomainWithLink => ({
   ...mapRow(row),
-  distributionCode: toStringOrNull(row.link_code) ?? '',
+  distributionCode: toStringOrNull(row.link_code),
   distributionTitle: toStringOrNull(row.link_title),
 });
 
@@ -152,7 +152,7 @@ export async function listCustomDomainsByOwner(DB: D1Database, ownerId: string) 
   const statement = `
     SELECT cd.*, l.code as link_code, l.title as link_title
     FROM custom_domains cd
-    JOIN links l ON l.id = cd.distribution_id
+    LEFT JOIN links l ON l.id = cd.distribution_id
     WHERE cd.owner_id=?
     ORDER BY cd.created_at DESC
   `;
@@ -168,7 +168,7 @@ export async function getCustomDomainByHostname(DB: D1Database, hostname: string
   const statement = `
     SELECT cd.*, l.code as link_code, l.title as link_title
     FROM custom_domains cd
-    JOIN links l ON l.id = cd.distribution_id
+    LEFT JOIN links l ON l.id = cd.distribution_id
     WHERE cd.hostname=?
     LIMIT 1
   `;
@@ -182,7 +182,7 @@ export async function getCustomDomainById(DB: D1Database, id: string) {
   const statement = `
     SELECT cd.*, l.code as link_code, l.title as link_title
     FROM custom_domains cd
-    JOIN links l ON l.id = cd.distribution_id
+    LEFT JOIN links l ON l.id = cd.distribution_id
     WHERE cd.id=?
     LIMIT 1
   `;
@@ -199,7 +199,7 @@ export async function resolveCustomDomain(
 
 type CreateCustomDomainInput = {
   ownerId: string;
-  distributionId: string;
+  distributionId: string | null;
   hostname: string;
   dnsTarget: string;
   verificationMethod: string;

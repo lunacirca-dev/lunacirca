@@ -6,7 +6,6 @@ import {
   listCustomDomainsByOwner,
   type CustomDomainWithLink,
 } from '@/lib/custom-domains';
-import { fetchDistributionSummariesByOwner } from '@/lib/distribution';
 import { DEFAULT_LOCALE, dictionaries, type Locale } from '@/i18n/dictionary';
 import { getTranslator } from '@/i18n/helpers';
 
@@ -48,10 +47,7 @@ export default async function MemberCustomDomainsPage() {
     throw new Error('D1 binding DB is missing');
   }
 
-  const [domains, distributions] = await Promise.all([
-    listCustomDomainsByOwner(DB, uid),
-    fetchDistributionSummariesByOwner(DB, uid),
-  ]);
+  const domains = await listCustomDomainsByOwner(DB, uid);
 
   const dnsTarget =
     (bindings.CUSTOM_DOMAIN_EDGE_TARGET ?? '').trim() || DEFAULT_DNS_TARGET;
@@ -66,7 +62,6 @@ export default async function MemberCustomDomainsPage() {
         <CustomDomainsClient
           locale={locale}
           initialDomains={domains as CustomDomainWithLink[]}
-          distributions={distributions}
           dnsTarget={dnsTarget}
         />
       </div>

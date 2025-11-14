@@ -4,12 +4,10 @@ import { FormEvent, useMemo, useState } from 'react';
 import type { Locale } from '@/i18n/dictionary';
 import { useI18n } from '@/i18n/provider';
 import type { CustomDomainStatus, CustomDomainWithLink } from '@/lib/custom-domains';
-import type { DistributionLinkSummary } from '@/lib/distribution';
 
 type Props = {
   locale: Locale;
   initialDomains: CustomDomainWithLink[];
-  distributions: DistributionLinkSummary[];
   dnsTarget: string;
 };
 
@@ -26,19 +24,15 @@ const statusColor: Record<CustomDomainStatus, string> = {
 
 export default function CustomDomainsClient({
   initialDomains,
-  distributions,
   dnsTarget,
 }: Props) {
   const { t } = useI18n();
   const [domains, setDomains] = useState<CustomDomainWithLink[]>(initialDomains);
   const [showForm, setShowForm] = useState(false);
   const [hostname, setHostname] = useState('');
-  const [distributionId, setDistributionId] = useState(distributions[0]?.id ?? '');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const hasDistributions = distributions.length > 0;
 
   const statusLabels: Record<CustomDomainStatus, string> = useMemo(
     () => ({
@@ -67,7 +61,6 @@ export default function CustomDomainsClient({
 
   function resetForm() {
     setHostname('');
-    setDistributionId(distributions[0]?.id ?? '');
     setError(null);
     setSuccessMessage(null);
     setSubmitting(false);
@@ -76,7 +69,7 @@ export default function CustomDomainsClient({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!hasDistributions || submitting) return;
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     setSuccessMessage(null);
@@ -84,7 +77,7 @@ export default function CustomDomainsClient({
       const res = await fetch('/api/member/custom-domains', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ hostname, distributionId }),
+        body: JSON.stringify({ hostname }),
       });
       const data = (await res.json()) as ApiResponse;
       if (!res.ok || !data.ok) {
@@ -118,13 +111,9 @@ export default function CustomDomainsClient({
             setError(null);
             setSuccessMessage(null);
           }}
-          disabled={!hasDistributions}
         >
           {t('member.customDomains.addDomain')}
         </button>
-        {!hasDistributions ? (
-          <span className="text-sm text-gray-500">{t('member.customDomains.error.noDistributions')}</span>
-        ) : null}
       </div>
 
       {showForm && (
@@ -146,27 +135,6 @@ export default function CustomDomainsClient({
             />
             <p className="mt-1 text-xs text-gray-500">
               {t('member.customDomains.hostnameHint')}
-            </p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              {t('member.customDomains.distributionLabel')}
-            </label>
-            <select
-              value={distributionId}
-              onChange={(event) => setDistributionId(event.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              required
-              disabled={!hasDistributions}
-            >
-              {distributions.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.title ? `${entry.title} (${entry.code})` : entry.code}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              {t('member.customDomains.distributionHint')}
             </p>
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -192,16 +160,17 @@ export default function CustomDomainsClient({
 
       {domains.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-600">
-          {hasDistributions
-            ? t('member.customDomains.empty')
-            : t('member.customDomains.error.noDistributions')}
+          {t('member.customDomains.empty')}
         </div>
       ) : (
         <div className="space-y-4">
           {domains.map((domain) => {
             const label = domain.distributionTitle
-              ? `${domain.distributionTitle} (${domain.distributionCode})`
+              ? domain.distributionTitle + (domain.distributionCode ? ` (${domain.distributionCode})` : '')
               : domain.distributionCode;
+            const linkText = label
+              ? t('member.customDomains.linkedDistribution').replace('{code}', label)
+              : t('member.customDomains.linkedDistributionPending');
             const txtName =
               domain.txtName ?? `_cf-custom-hostname.${domain.hostname}`;
             const txtValue = domain.txtValue ?? domain.verificationToken;
