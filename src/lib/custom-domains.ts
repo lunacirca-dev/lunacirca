@@ -96,7 +96,10 @@ const toStringOrNull = (value: unknown): string | null => {
 const mapRow = (row: DomainRow): CustomDomainRecord => ({
   id: toStringOrNull(row.id) ?? '',
   ownerId: toStringOrNull(row.owner_id) ?? '',
-  distributionId: toStringOrNull(row.distribution_id),
+  distributionId: (() => {
+    const value = toStringOrNull(row.distribution_id);
+    return value && value.trim() ? value : null;
+  })(),
   hostname: toStringOrNull(row.hostname) ?? '',
   status: (toStringOrNull(row.status) as CustomDomainStatus) ?? 'pending_dns',
   verificationMethod: toStringOrNull(row.verification_method) ?? 'txt',
@@ -212,6 +215,7 @@ export async function createCustomDomain(DB: D1Database, input: CreateCustomDoma
   await ensureSchema(DB);
   const id = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
+  const distributionId = input.distributionId ?? '';
   const statement = `
     INSERT INTO custom_domains (
       id,
@@ -233,7 +237,7 @@ export async function createCustomDomain(DB: D1Database, input: CreateCustomDoma
     .bind(
       id,
       input.ownerId,
-      input.distributionId,
+      distributionId,
       input.hostname,
       input.verificationMethod,
       input.verificationToken,
