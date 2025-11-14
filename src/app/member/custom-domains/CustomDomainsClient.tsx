@@ -271,9 +271,8 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
                     <p className="text-base font-semibold text-gray-900">{domain.hostname}</p>
                     <p className="text-sm text-gray-500">{linkText}</p>
                     <p className="text-xs text-gray-400">
-                      {t('member.customDomains.lastChecked', {
-                        time: formatTimestamp(domain.lastCheckedAt),
-                      })}
+                      {t('member.customDomains.lastChecked')
+                        .replace('{time}', formatTimestamp(domain.lastCheckedAt))}
                     </p>
                   </div>
                   <span
