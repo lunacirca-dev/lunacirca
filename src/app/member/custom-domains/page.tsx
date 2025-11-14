@@ -60,7 +60,6 @@ export default async function MemberCustomDomainsPage() {
           <p className="mt-1 text-sm text-gray-600">{t('member.customDomains.description')}</p>
         </div>
         <CustomDomainsClient
-          locale={locale}
           initialDomains={domains as CustomDomainWithLink[]}
           dnsTarget={dnsTarget}
         />

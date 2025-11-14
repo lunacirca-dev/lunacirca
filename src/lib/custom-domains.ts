@@ -250,3 +250,61 @@ export async function createCustomDomain(DB: D1Database, input: CreateCustomDoma
     .run();
   return getCustomDomainById(DB, id);
 }
+
+export async function getCustomDomainForOwner(DB: D1Database, id: string, ownerId: string) {
+  const domain = await getCustomDomainById(DB, id);
+  if (!domain || domain.ownerId !== ownerId) {
+    return null;
+  }
+  return domain;
+}
+
+type UpdateColumns = Partial<{
+  status: CustomDomainStatus;
+  cf_hostname_id: string | null;
+  last_error: string | null;
+  last_checked_at: number | null;
+}>;
+
+export async function updateCustomDomainRecord(
+  DB: D1Database,
+  id: string,
+  updates: UpdateColumns
+) {
+  const entries = Object.entries(updates).filter(([, value]) => value !== undefined);
+  if (!entries.length) {
+    return getCustomDomainById(DB, id);
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const sets = entries.map(([column]) => `${column}=?`).join(', ');
+  const values = entries.map(([, value]) => value);
+  values.push(now, id);
+  await DB.prepare(`UPDATE custom_domains SET ${sets}, updated_at=? WHERE id=?`).bind(...values).run();
+  return getCustomDomainById(DB, id);
+}
+
+export async function checkHttpsStatus(hostname: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(`https://${hostname}`, {
+      method: 'HEAD',
+      redirect: 'manual',
+      signal: controller.signal,
+    });
+    return {
+      ok: response.status >= 200 && response.status < 400,
+      status: response.status,
+      headers: {
+        server: response.headers.get('server'),
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Unknown network error',
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}

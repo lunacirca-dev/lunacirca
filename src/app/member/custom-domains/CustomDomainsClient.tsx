@@ -1,19 +1,25 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
-import type { Locale } from '@/i18n/dictionary';
 import { useI18n } from '@/i18n/provider';
 import type { CustomDomainStatus, CustomDomainWithLink } from '@/lib/custom-domains';
 
 type Props = {
-  locale: Locale;
   initialDomains: CustomDomainWithLink[];
   dnsTarget: string;
 };
 
-type ApiResponse =
-  | { ok: true; domain: CustomDomainWithLink }
-  | { ok: false; error: string };
+type DomainActionResponse = {
+  ok: boolean;
+  domain?: CustomDomainWithLink;
+  error?: string;
+  message?: string | null;
+  http?: {
+    ok: boolean;
+    status?: number;
+    error?: string;
+  } | null;
+};
 
 const statusColor: Record<CustomDomainStatus, string> = {
   pending_dns: 'text-amber-600',
@@ -22,17 +28,17 @@ const statusColor: Record<CustomDomainStatus, string> = {
   failed: 'text-red-600',
 };
 
-export default function CustomDomainsClient({
-  initialDomains,
-  dnsTarget,
-}: Props) {
+export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props) {
   const { t } = useI18n();
   const [domains, setDomains] = useState<CustomDomainWithLink[]>(initialDomains);
   const [showForm, setShowForm] = useState(false);
   const [hostname, setHostname] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [messages, setMessages] = useState<Record<string, string | null>>({});
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
+  const [busy, setBusy] = useState<{ id: string; action: 'verify' | 'refresh' } | null>(null);
 
   const statusLabels: Record<CustomDomainStatus, string> = useMemo(
     () => ({
@@ -44,25 +50,104 @@ export default function CustomDomainsClient({
     [t]
   );
 
-  const errorMessages: Record<string, string> = useMemo(
+  const actionErrors: Record<string, string> = useMemo(
     () => ({
       UNAUTHENTICATED: t('member.customDomains.error.unauthenticated'),
-      INVALID_HOSTNAME: t('member.customDomains.error.invalidHostname'),
-      WILDCARD_NOT_ALLOWED: t('member.customDomains.error.wildcardNotAllowed'),
-      APEX_NOT_ALLOWED: t('member.customDomains.error.apexNotAllowed'),
-      DISTRIBUTION_REQUIRED: t('member.customDomains.error.distributionRequired'),
-      DISTRIBUTION_NOT_FOUND: t('member.customDomains.error.distributionMissing'),
-      FORBIDDEN_DISTRIBUTION: t('member.customDomains.error.distributionMissing'),
-      HOSTNAME_EXISTS: t('member.customDomains.error.duplicate'),
-      INVALID_PAYLOAD: t('member.customDomains.error.invalidHostname'),
+      DNS_NOT_READY: t('member.customDomains.error.dnsNotReady'),
+      CLOUDFLARE_HOSTNAME_MISSING: t('member.customDomains.error.cloudflareMissingId'),
+      CLOUDFLARE_ERROR: t('member.customDomains.error.cloudflare'),
+      CLOUDFLARE_API_ERROR: t('member.customDomains.error.cloudflareConfig'),
+      DOMAIN_NOT_FOUND: t('member.customDomains.error.generic'),
     }),
     [t]
   );
 
+  const formatTimestamp = (value: number | null) => {
+    if (!value) return t('member.customDomains.lastChecked.never');
+    return new Date(value * 1000).toLocaleString();
+  };
+
+  function setDomainMessage(id: string, message: string | null) {
+    setMessages((prev) => ({ ...prev, [id]: message }));
+  }
+
+  function setDomainError(id: string, message: string | null) {
+    setErrors((prev) => ({ ...prev, [id]: message }));
+  }
+
+  function mergeDomain(domain: CustomDomainWithLink) {
+    setDomains((prev) =>
+      prev.map((entry) => (entry.id === domain.id ? domain : entry))
+    );
+  }
+
+  const mapError = (code?: string, fallback?: string | null) =>
+    (code && actionErrors[code]) ?? fallback ?? t('member.customDomains.error.generic');
+
+  async function handleVerify(domainId: string) {
+    setBusy({ id: domainId, action: 'verify' });
+    setDomainError(domainId, null);
+    setDomainMessage(domainId, null);
+    try {
+      const res = await fetch(`/api/member/custom-domains/${domainId}/verify`, {
+        method: 'POST',
+      });
+      const data = (await res.json()) as DomainActionResponse;
+      if (!res.ok || !data.ok || !data.domain) {
+        setDomainError(domainId, mapError(data.error, data.message));
+      } else {
+        mergeDomain(data.domain);
+        setDomainMessage(domainId, t('member.customDomains.success.verificationRequested'));
+      }
+    } catch {
+      setDomainError(domainId, t('member.customDomains.error.generic'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleRefresh(domainId: string) {
+    setBusy({ id: domainId, action: 'refresh' });
+    setDomainError(domainId, null);
+    setDomainMessage(domainId, null);
+    try {
+      const res = await fetch(`/api/member/custom-domains/${domainId}/refresh`, {
+        method: 'POST',
+      });
+      const data = (await res.json()) as DomainActionResponse;
+      if (!res.ok || !data.ok || !data.domain) {
+        setDomainError(domainId, mapError(data.error, data.message));
+      } else {
+        mergeDomain(data.domain);
+        if (data.http) {
+          if (data.http.ok) {
+            setDomainMessage(
+              domainId,
+              t('member.customDomains.success.httpsOk', {
+                status: data.http.status ?? 200,
+              })
+            );
+          } else {
+            setDomainError(
+              domainId,
+              data.http.error ?? t('member.customDomains.error.httpsFailed')
+            );
+          }
+        } else {
+          setDomainMessage(domainId, t('member.customDomains.success.statusChecked'));
+        }
+      }
+    } catch {
+      setDomainError(domainId, t('member.customDomains.error.generic'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   function resetForm() {
     setHostname('');
-    setError(null);
-    setSuccessMessage(null);
+    setFormError(null);
+    setFormSuccess(null);
     setSubmitting(false);
     setShowForm(false);
   }
@@ -71,28 +156,27 @@ export default function CustomDomainsClient({
     event.preventDefault();
     if (submitting) return;
     setSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
+    setFormError(null);
+    setFormSuccess(null);
     try {
       const res = await fetch('/api/member/custom-domains', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ hostname }),
       });
-      const data = (await res.json()) as ApiResponse;
-      if (!res.ok || !data.ok) {
-        const key = 'error' in data ? data.error : undefined;
-        setError(errorMessages[key ?? ''] ?? t('member.customDomains.error.generic'));
+      const data = (await res.json()) as DomainActionResponse;
+      if (!res.ok || !data.ok || !data.domain) {
+        setFormError(mapError(data.error, data.message));
         setSubmitting(false);
         return;
       }
       setDomains((prev) => [data.domain, ...prev]);
-      setSuccessMessage(t('member.customDomains.success.created'));
+      setFormSuccess(t('member.customDomains.success.created'));
       setHostname('');
       setSubmitting(false);
       setShowForm(false);
     } catch {
-      setError(t('member.customDomains.error.generic'));
+      setFormError(t('member.customDomains.error.generic'));
       setSubmitting(false);
     }
   }
@@ -108,8 +192,8 @@ export default function CustomDomainsClient({
           className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           onClick={() => {
             setShowForm((value) => !value);
-            setError(null);
-            setSuccessMessage(null);
+            setFormError(null);
+            setFormSuccess(null);
           }}
         >
           {t('member.customDomains.addDomain')}
@@ -137,8 +221,8 @@ export default function CustomDomainsClient({
               {t('member.customDomains.hostnameHint')}
             </p>
           </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          {successMessage ? <p className="text-sm text-emerald-600">{successMessage}</p> : null}
+          {formError ? <p className="text-sm text-red-600">{formError}</p> : null}
+          {formSuccess ? <p className="text-sm text-emerald-600">{formSuccess}</p> : null}
           <div className="flex flex-wrap gap-3">
             <button
               type="submit"
@@ -166,7 +250,8 @@ export default function CustomDomainsClient({
         <div className="space-y-4">
           {domains.map((domain) => {
             const label = domain.distributionTitle
-              ? domain.distributionTitle + (domain.distributionCode ? ` (${domain.distributionCode})` : '')
+              ? domain.distributionTitle +
+                (domain.distributionCode ? ` (${domain.distributionCode})` : '')
               : domain.distributionCode ?? null;
             const linkText = label
               ? t('member.customDomains.linkedDistribution').replace('{code}', label)
@@ -175,12 +260,21 @@ export default function CustomDomainsClient({
               domain.txtName ?? `_cf-custom-hostname.${domain.hostname}`;
             const txtValue = domain.txtValue ?? domain.verificationToken;
             const cnameTarget = domain.dnsTarget || dnsTarget;
+            const isBusyVerify =
+              busy?.id === domain.id && busy.action === 'verify';
+            const isBusyRefresh =
+              busy?.id === domain.id && busy.action === 'refresh';
             return (
               <div key={domain.id} className="rounded-lg border border-gray-200 p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-base font-semibold text-gray-900">{domain.hostname}</p>
                     <p className="text-sm text-gray-500">{linkText}</p>
+                    <p className="text-xs text-gray-400">
+                      {t('member.customDomains.lastChecked', {
+                        time: formatTimestamp(domain.lastCheckedAt),
+                      })}
+                    </p>
                   </div>
                   <span
                     className={`text-xs font-semibold uppercase tracking-wide ${statusColor[domain.status]}`}
@@ -193,7 +287,7 @@ export default function CustomDomainsClient({
                     <p className="text-xs font-semibold uppercase text-gray-500">
                       {t('member.customDomains.instructions.cnameTitle')}
                     </p>
-                    <div className="mt-1 rounded-md bg-gray-50 p-3 font-mono text-sm text-gray-800">
+                    <div className="mt-1 rounded-md bg-gray-50 p-3 font-mono text-sm text-gray-800 break-all">
                       {domain.hostname} → {cnameTarget}
                     </div>
                   </div>
@@ -206,16 +300,40 @@ export default function CustomDomainsClient({
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
-                  <p>{t('member.customDomains.instructions.note')}</p>
+                <div className="mt-3 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    className="text-blue-600 hover:text-blue-500"
-                    onClick={() => window.location.reload()}
+                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => handleVerify(domain.id)}
+                    disabled={isBusyVerify || domain.status === 'active'}
                   >
-                    {t('member.customDomains.refresh')}
+                    {isBusyVerify
+                      ? t('member.customDomains.actions.verifying')
+                      : t('member.customDomains.actions.verify')}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => handleRefresh(domain.id)}
+                    disabled={isBusyRefresh}
+                  >
+                    {isBusyRefresh
+                      ? t('member.customDomains.actions.refreshing')
+                      : t('member.customDomains.actions.refresh')}
                   </button>
                 </div>
+                {messages[domain.id] ? (
+                  <p className="mt-2 text-sm text-emerald-600">{messages[domain.id]}</p>
+                ) : null}
+                {errors[domain.id] ? (
+                  <p className="mt-2 text-sm text-red-600">{errors[domain.id]}</p>
+                ) : null}
+                {domain.lastError ? (
+                  <p className="mt-2 text-xs text-amber-600">{domain.lastError}</p>
+                ) : null}
+                <p className="mt-4 text-xs text-gray-500">
+                  {t('member.customDomains.instructions.note')}
+                </p>
               </div>
             );
           })}

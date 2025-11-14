@@ -48,6 +48,7 @@ This path is useful when testing before pushing to Git or when you need an immed
 - CDN assets: downloads redirect to `https://cdn.lunacirca.com/<key>`. Confirm that key exists in R2 and the CDN exposes it publicly.
 - Locales: middleware redirects to `/en` or `/zh-TW`. Add languages inside `src/i18n/dictionary.ts` (and register them in `src/i18n/locales.ts`) for extra locales.
 - Custom domains: member centre UI reads/writes the `custom_domains` table (see `migrations/20251114_create_custom_domains.sql`). Point customer subdomains to `edge.dataruapp.com`, then use `/member/custom-domains` to generate the CNAME/TXT instructions.
+- Cloudflare for SaaS: DNS verification and certificate requests call the Custom Hostname API. Expose `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (token needs permission to manage Custom Hostnames) in the Pages/Workers environment.
 
 ## Useful scripts
 - `npm run dev` - local Next.js dev server.
