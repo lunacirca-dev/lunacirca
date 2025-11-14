@@ -169,7 +169,8 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
         setSubmitting(false);
         return;
       }
-      setDomains((prev) => [data.domain, ...prev]);
+      const nextDomain = data.domain;
+      setDomains((prev) => [nextDomain, ...prev]);
       setFormSuccess(t('member.customDomains.success.created'));
       setHostname('');
       setSubmitting(false);
