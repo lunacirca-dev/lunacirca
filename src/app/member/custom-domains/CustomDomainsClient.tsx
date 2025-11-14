@@ -121,12 +121,11 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
         mergeDomain(data.domain);
         if (data.http) {
           if (data.http.ok) {
-            setDomainMessage(
-              domainId,
-              t('member.customDomains.success.httpsOk', {
-                status: data.http.status ?? 200,
-              })
+            const statusText = t('member.customDomains.success.httpsOk').replace(
+              '{status}',
+              String(data.http.status ?? 200)
             );
+            setDomainMessage(domainId, statusText);
           } else {
             setDomainError(
               domainId,
