@@ -231,12 +231,19 @@ export async function getVerificationSummary(
   };
 }
 
+export type VerificationEmailDebugLog = {
+  level: 'info' | 'error';
+  message: string;
+  meta?: unknown;
+};
+
 export type VerificationEmailParams = {
   env: EmailEnv;
   to: string;
   subject?: string;
   verificationUrl: string;
   appName?: string;
+  debug?: (entry: VerificationEmailDebugLog) => void;
 };
 
 export async function sendVerificationEmail({
@@ -245,6 +252,7 @@ export async function sendVerificationEmail({
   verificationUrl,
   subject = 'Verify your email address',
   appName = 'Lunacirca',
+  debug,
 }: VerificationEmailParams): Promise<void> {
   const resolvedEnv: Required<EmailEnv> = {
     MAILCHANNELS_API_KEY: env.MAILCHANNELS_API_KEY ?? process.env.MAILCHANNELS_API_KEY ?? '',
@@ -255,7 +263,23 @@ export async function sendVerificationEmail({
     APP_NAME: env.APP_NAME ?? process.env.APP_NAME ?? appName,
   };
 
-  console.log('[email] sendVerificationEmail invoked', {
+  const emit = (level: 'info' | 'error', message: string, meta?: unknown) => {
+    const entry: VerificationEmailDebugLog = { level, message, meta };
+    if (level === 'error') {
+      console.error('[email]', message, meta ?? '');
+    } else {
+      console.log('[email]', message, meta ?? '');
+    }
+    if (debug) {
+      try {
+        debug(entry);
+      } catch {
+        // swallow debug hook errors
+      }
+    }
+  };
+
+  emit('info', 'sendVerificationEmail invoked', {
     to,
     verificationUrl,
     hasApiKey: Boolean(resolvedEnv.MAILCHANNELS_API_KEY),
@@ -347,7 +371,7 @@ export async function sendVerificationEmail({
       .then((text) => text.slice(0, 500))
       .catch(() => '<body unavailable>');
 
-    console.log('[email] mailchannels response', {
+    emit('info', 'mailchannels response', {
       status: response.status,
       ok: response.ok,
       bodySnippet: debugSnippet,
@@ -359,10 +383,10 @@ export async function sendVerificationEmail({
       );
     }
 
-    console.log('[email] verification mail enqueued successfully', { to });
+    emit('info', 'verification mail enqueued successfully', { to });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    console.error('[email] verification mail failure', {
+    emit('error', 'verification mail failure', {
       error: reason,
       to,
       endpoint: `${apiBase}/send`,
