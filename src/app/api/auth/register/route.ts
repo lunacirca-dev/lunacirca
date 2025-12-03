@@ -8,6 +8,7 @@ import {
   sendVerificationEmail,
   EMAIL_VERIFICATION_TTL_SECONDS,
 } from '@/lib/email-verification';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 export const runtime = 'edge';
 // 0
@@ -21,6 +22,8 @@ type Env = {
   APP_NAME?: string;
   MAILCHANNELS_API_KEY?: string;
   MAILCHANNELS_API_BASE?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
 };
 
 async function ensureUserBucketFolder(bucket: R2Bucket | undefined, userId: string) {
@@ -42,6 +45,7 @@ export async function POST(req: Request) {
   const bindings = env as Env;
   const DB = bindings.DB ?? bindings['rudl-app'];
   const R2 = bindings.R2_BUCKET;
+  const appName = bindings.APP_NAME ?? 'Lunacirca';
   if (!DB) {
     return NextResponse.json({ ok: false, error: 'D1 binding DB is missing' }, { status: 500 });
   }
@@ -109,11 +113,15 @@ export async function POST(req: Request) {
       env: bindings,
       to: normalizedEmail,
       verificationUrl,
-      subject: `${bindings.APP_NAME ?? 'Lunacirca'} - Email verification`,
-      appName: bindings.APP_NAME ?? 'Lunacirca',
+      subject: `${appName} - Email verification`,
+      appName,
     });
 
     await ensureUserBucketFolder(R2, id);
+    await sendTelegramNotification(
+      bindings,
+      `[${appName}] New user registered: ${normalizedEmail}`
+    );
     shouldRollback = false;
 
     const response = NextResponse.json({

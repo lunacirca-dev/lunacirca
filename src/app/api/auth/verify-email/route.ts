@@ -4,6 +4,7 @@ import {
   consumeEmailVerificationToken,
   markEmailVerified,
 } from '@/lib/email-verification';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 export const runtime = 'edge';
 
@@ -11,6 +12,9 @@ type Env = {
   DB?: D1Database;
   ['rudl-app']?: D1Database;
   APP_BASE_URL?: string;
+  APP_NAME?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
 };
 
 const buildRedirect = (baseUrl: string, status: string) =>
@@ -23,6 +27,7 @@ export async function GET(req: Request) {
   const bindings = env as Env;
   const DB = bindings.DB ?? bindings['rudl-app'];
   const baseUrl = (bindings.APP_BASE_URL ?? `${url.protocol}//${url.host}`).replace(/\/+$/, '');
+  const appName = bindings.APP_NAME ?? 'Lunacirca';
 
   if (!token) {
     return NextResponse.redirect(buildRedirect(baseUrl, 'invalid'), 302);
@@ -37,6 +42,15 @@ export async function GET(req: Request) {
 
     if (result.status === 'success') {
       await markEmailVerified(DB, result.userId);
+      const email = await DB.prepare('SELECT email FROM users WHERE id=? LIMIT 1')
+        .bind(result.userId)
+        .first<{ email?: string } | null>()
+        .then((row) => (row?.email && typeof row.email === 'string' ? row.email : null))
+        .catch(() => null);
+      await sendTelegramNotification(
+        bindings,
+        `[${appName}] Email verified: ${email ?? result.userId}`
+      );
       const response = NextResponse.redirect(buildRedirect(baseUrl, 'success'), 302);
       response.cookies.set('uid', result.userId, {
         httpOnly: true,
