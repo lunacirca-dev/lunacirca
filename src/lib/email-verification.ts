@@ -285,6 +285,10 @@ export async function sendVerificationEmail({
     hasApiKey: Boolean(resolvedEnv.MAILCHANNELS_API_KEY),
     hasFrom: Boolean(resolvedEnv.EMAIL_FROM),
     apiBase: resolvedEnv.MAILCHANNELS_API_BASE || 'https://api.mailchannels.net/tx/v1',
+    from: resolvedEnv.EMAIL_FROM,
+    fromName: resolvedEnv.EMAIL_FROM_NAME,
+    subject,
+    appName: resolvedEnv.APP_NAME,
   });
 
   const fromAddress = resolvedEnv.EMAIL_FROM;
@@ -355,6 +359,16 @@ export async function sendVerificationEmail({
     ],
   };
 
+  emit('info', 'mail payload prepared', {
+    to,
+    from: fromAddress,
+    fromName,
+    subject,
+    apiBase,
+    textLength: textBody.length,
+    htmlLength: htmlBody.length,
+  });
+
   try {
     const response = await fetch(`${apiBase}/send`, {
       method: 'POST',
@@ -368,13 +382,15 @@ export async function sendVerificationEmail({
     const debugSnippet = await response
       .clone()
       .text()
-      .then((text) => text.slice(0, 500))
+      .then((text) => text.slice(0, 2000))
       .catch(() => '<body unavailable>');
 
     emit('info', 'mailchannels response', {
       status: response.status,
       ok: response.ok,
+      statusText: response.statusText,
       bodySnippet: debugSnippet,
+      headers: Object.fromEntries(response.headers.entries()),
     });
 
     if (!response.ok) {
@@ -386,11 +402,15 @@ export async function sendVerificationEmail({
     emit('info', 'verification mail enqueued successfully', { to });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    emit('error', 'verification mail failure', {
-      error: reason,
-      to,
-      endpoint: `${apiBase}/send`,
-    });
+    emit(
+      'error',
+      'verification mail failure',
+      {
+        error: reason,
+        to,
+        endpoint: `${apiBase}/send`,
+      }
+    );
     throw new Error(`Failed to dispatch verification email: ${reason}`);
   }
 }
