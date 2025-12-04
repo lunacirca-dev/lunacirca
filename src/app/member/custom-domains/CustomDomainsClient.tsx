@@ -372,7 +372,7 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
                       {t('member.customDomains.instructions.cnameTitle')}
                     </p>
                     <div className="mt-1 rounded-md bg-gray-50 p-3 font-mono text-sm text-gray-800 break-all">
-                      {domain.hostname} -> {cnameTarget}
+                      {domain.hostname} {'->'} {cnameTarget}
                     </div>
                   </div>
                   <div>
