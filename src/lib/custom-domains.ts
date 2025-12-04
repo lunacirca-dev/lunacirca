@@ -33,6 +33,15 @@ type DomainRow = Record<string, unknown>;
 let schemaReady = false;
 let schemaPromise: Promise<void> | null = null;
 
+const LEGACY_DNS_TARGETS = new Set(['edge.dataruapp.com']);
+
+const normalizeDnsTargetValue = (value: string | null | undefined): string => {
+  const target = (value ?? '').trim();
+  if (!target) return DEFAULT_DNS_TARGET;
+  if (LEGACY_DNS_TARGETS.has(target.toLowerCase())) return DEFAULT_DNS_TARGET;
+  return target;
+};
+
 async function ensureSchema(DB: D1Database) {
   if (schemaReady) return;
   if (schemaPromise) {
@@ -105,7 +114,7 @@ const mapRow = (row: DomainRow): CustomDomainRecord => ({
   verificationMethod: toStringOrNull(row.verification_method) ?? 'txt',
   verificationToken: toStringOrNull(row.verification_token) ?? '',
   cfHostnameId: toStringOrNull(row.cf_hostname_id),
-  dnsTarget: toStringOrNull(row.dns_target) ?? DEFAULT_DNS_TARGET,
+  dnsTarget: normalizeDnsTargetValue(toStringOrNull(row.dns_target)),
   txtName: toStringOrNull(row.txt_name),
   txtValue: toStringOrNull(row.txt_value),
   lastError: toStringOrNull(row.last_error),
@@ -216,6 +225,7 @@ export async function createCustomDomain(DB: D1Database, input: CreateCustomDoma
   const id = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
   const distributionId = input.distributionId ?? '';
+  const dnsTarget = normalizeDnsTargetValue(input.dnsTarget);
   const statement = `
     INSERT INTO custom_domains (
       id,
@@ -241,7 +251,7 @@ export async function createCustomDomain(DB: D1Database, input: CreateCustomDoma
       input.hostname,
       input.verificationMethod,
       input.verificationToken,
-      input.dnsTarget,
+      dnsTarget,
       input.txtName,
       input.txtValue,
       now,
@@ -276,7 +286,11 @@ export async function updateCustomDomainRecord(
   id: string,
   updates: UpdateColumns
 ) {
-  const entries = Object.entries(updates).filter(([, value]) => value !== undefined);
+  const normalizedUpdates = { ...updates };
+  if (normalizedUpdates.dns_target !== undefined) {
+    normalizedUpdates.dns_target = normalizeDnsTargetValue(normalizedUpdates.dns_target);
+  }
+  const entries = Object.entries(normalizedUpdates).filter(([, value]) => value !== undefined);
   if (!entries.length) {
     return getCustomDomainById(DB, id);
   }
