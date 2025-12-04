@@ -39,6 +39,10 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
   const [messages, setMessages] = useState<Record<string, string | null>>({});
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [busy, setBusy] = useState<{ id: string; action: 'verify' | 'refresh' } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingHostname, setEditingHostname] = useState('');
+  const [editingSubmitting, setEditingSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const statusLabels: Record<CustomDomainStatus, string> = useMemo(
     () => ({
@@ -58,6 +62,12 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
       CLOUDFLARE_ERROR: t('member.customDomains.error.cloudflare'),
       CLOUDFLARE_API_ERROR: t('member.customDomains.error.cloudflareConfig'),
       DOMAIN_NOT_FOUND: t('member.customDomains.error.generic'),
+      INVALID_HOSTNAME: t('member.customDomains.error.invalidHostname'),
+      WILDCARD_NOT_ALLOWED: t('member.customDomains.error.wildcardNotAllowed'),
+      APEX_NOT_ALLOWED: t('member.customDomains.error.apexNotAllowed'),
+      HOSTNAME_EXISTS: t('member.customDomains.error.duplicate'),
+      UPDATE_FAILED: t('member.customDomains.error.generic'),
+      DELETE_FAILED: t('member.customDomains.error.generic'),
     }),
     [t]
   );
@@ -103,6 +113,80 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
       setDomainError(domainId, t('member.customDomains.error.generic'));
     } finally {
       setBusy(null);
+    }
+  }
+
+  function beginEdit(domain: CustomDomainWithLink) {
+    setEditingId(domain.id);
+    setEditingHostname(domain.hostname);
+    setEditingSubmitting(false);
+    setDomainError(domain.id, null);
+    setDomainMessage(domain.id, null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingHostname('');
+    setEditingSubmitting(false);
+  }
+
+  async function handleUpdate(domainId: string) {
+    if (!editingId || editingId !== domainId) {
+      return;
+    }
+    setEditingSubmitting(true);
+    setDomainError(domainId, null);
+    setDomainMessage(domainId, null);
+    try {
+      const res = await fetch(`/api/member/custom-domains/${domainId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ hostname: editingHostname }),
+      });
+      const data = (await res.json()) as DomainActionResponse;
+      if (!res.ok || !data.ok || !data.domain) {
+        setDomainError(domainId, mapError(data.error, data.message));
+      } else {
+        mergeDomain(data.domain);
+        setDomainMessage(domainId, t('member.customDomains.success.updated'));
+        cancelEdit();
+      }
+    } catch {
+      setDomainError(domainId, t('member.customDomains.error.generic'));
+    } finally {
+      setEditingSubmitting(false);
+    }
+  }
+
+  async function handleDelete(domainId: string) {
+    const target = domains.find((item) => item.id === domainId);
+    const confirmed = window.confirm(
+      t('member.customDomains.confirmDelete').replace(
+        '{hostname}',
+        target?.hostname ?? t('member.customDomains.hostnameLabel')
+      )
+    );
+    if (!confirmed) return;
+    setDeletingId(domainId);
+    setDomainError(domainId, null);
+    setDomainMessage(domainId, null);
+    try {
+      const res = await fetch(`/api/member/custom-domains/${domainId}`, {
+        method: 'DELETE',
+      });
+      const data = (await res.json()) as DomainActionResponse;
+      if (!res.ok || !data.ok) {
+        setDomainError(domainId, mapError(data.error, data.message));
+      } else {
+        setDomains((prev) => prev.filter((entry) => entry.id !== domainId));
+        if (editingId === domainId) {
+          cancelEdit();
+        }
+      }
+    } catch {
+      setDomainError(domainId, t('member.customDomains.error.generic'));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -264,6 +348,7 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
               busy?.id === domain.id && busy.action === 'verify';
             const isBusyRefresh =
               busy?.id === domain.id && busy.action === 'refresh';
+            const isEditingCurrent = editingId === domain.id;
             return (
               <div key={domain.id} className="rounded-lg border border-gray-200 p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -287,7 +372,7 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
                       {t('member.customDomains.instructions.cnameTitle')}
                     </p>
                     <div className="mt-1 rounded-md bg-gray-50 p-3 font-mono text-sm text-gray-800 break-all">
-                      {domain.hostname} → {cnameTarget}
+                      {domain.hostname} -> {cnameTarget}
                     </div>
                   </div>
                   <div>
@@ -320,7 +405,66 @@ export default function CustomDomainsClient({ initialDomains, dnsTarget }: Props
                       ? t('member.customDomains.actions.refreshing')
                       : t('member.customDomains.actions.refresh')}
                   </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => beginEdit(domain)}
+                    disabled={editingSubmitting && isEditingCurrent}
+                  >
+                    {editingSubmitting && isEditingCurrent
+                      ? t('member.customDomains.actions.updating')
+                      : t('member.customDomains.actions.edit')}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => handleDelete(domain.id)}
+                    disabled={deletingId === domain.id}
+                  >
+                    {deletingId === domain.id
+                      ? t('member.customDomains.actions.deleting')
+                      : t('member.customDomains.actions.delete')}
+                  </button>
                 </div>
+                {isEditingCurrent ? (
+                  <div className="mt-3 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+                    <div>
+                      <label className="text-xs font-medium text-gray-700">
+                        {t('member.customDomains.hostnameLabel')}
+                      </label>
+                      <input
+                        type="text"
+                        value={editingHostname}
+                        onChange={(event) => setEditingHostname(event.target.value)}
+                        placeholder={t('member.customDomains.hostnamePlaceholder')}
+                        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        {t('member.customDomains.hostnameHint')}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => handleUpdate(domain.id)}
+                        disabled={editingSubmitting}
+                      >
+                        {editingSubmitting
+                          ? t('member.customDomains.actions.updating')
+                          : t('member.customDomains.actions.save')}
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={cancelEdit}
+                        disabled={editingSubmitting}
+                      >
+                        {t('member.customDomains.cancel')}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 {messages[domain.id] ? (
                   <p className="mt-2 text-sm text-emerald-600">{messages[domain.id]}</p>
                 ) : null}

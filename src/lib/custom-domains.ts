@@ -264,6 +264,11 @@ type UpdateColumns = Partial<{
   cf_hostname_id: string | null;
   last_error: string | null;
   last_checked_at: number | null;
+  hostname: string;
+  verification_token: string;
+  txt_name: string | null;
+  txt_value: string | null;
+  dns_target: string;
 }>;
 
 export async function updateCustomDomainRecord(
@@ -281,6 +286,13 @@ export async function updateCustomDomainRecord(
   values.push(now, id);
   await DB.prepare(`UPDATE custom_domains SET ${sets}, updated_at=? WHERE id=?`).bind(...values).run();
   return getCustomDomainById(DB, id);
+}
+
+export async function deleteCustomDomain(DB: D1Database, id: string) {
+  if (!id?.trim()) return false;
+  await ensureSchema(DB);
+  await DB.prepare('DELETE FROM custom_domains WHERE id=?').bind(id).run();
+  return true;
 }
 
 export async function checkHttpsStatus(hostname: string) {
